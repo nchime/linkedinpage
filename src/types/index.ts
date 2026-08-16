@@ -123,6 +123,7 @@ export interface SectionConfig {
   title?: string;
   visible: boolean;
   order: number;
+  column?: 'main' | 'sidebar';
 }
 
 export interface ResumeData {

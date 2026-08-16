@@ -28,7 +28,7 @@ export async function scrapeLinkedInProfile(url: string): Promise<LinkedInProfil
   }
 }
 
-function parseLinkedInHtml($: cheerio.CheerioAPI, url: string): LinkedInProfile {
+export function parseLinkedInHtml($: cheerio.CheerioAPI, url: string): LinkedInProfile {
   const profileUrl = url.replace(/\/$/, '');
   
   const name = $('h1.text-heading-xlarge').first().text().trim() || 

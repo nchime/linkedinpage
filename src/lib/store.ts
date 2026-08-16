@@ -35,7 +35,7 @@ const defaultOptions: ExportOptions = {
 
 export const useResumeStore = create<ResumeState>((set) => ({
   profile: null,
-  selectedTemplate: templates[1],
+  selectedTemplate: templates[0],
   exportOptions: defaultOptions,
   isLoading: false,
   error: null,
@@ -66,7 +66,7 @@ export const useResumeStore = create<ResumeState>((set) => ({
   
   reset: () => set({
     profile: null,
-    selectedTemplate: templates[1],
+    selectedTemplate: templates[0],
     exportOptions: defaultOptions,
     isLoading: false,
     error: null,

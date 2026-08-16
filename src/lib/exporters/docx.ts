@@ -1,279 +1,192 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, TabStopType, TabStopPosition } from 'docx';
-import { ResumeData } from '@/types';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
+import { ResumeData, LinkedInProfile, SectionConfig } from '@/types';
+import { getOrderedSections } from '@/lib/templates';
 
-export async function generateDocx(data: ResumeData): Promise<Buffer> {
-  const { profile, options } = data;
-  const children: Paragraph[] = [];
+const PRIMARY = '2563EB';
+const SECONDARY = '666666';
+const MUTED = '888888';
 
-  children.push(
+function sectionHeading(title: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text: title, bold: true, size: 22, color: PRIMARY, font: 'Arial' })],
+    spacing: { before: 200, after: 100 },
+  });
+}
+
+function renderHeader(profile: LinkedInProfile): Paragraph[] {
+  const out: Paragraph[] = [];
+  out.push(
     new Paragraph({
-      children: [
-        new TextRun({
-          text: profile.fullName,
-          bold: true,
-          size: 32,
-          font: 'Arial',
-        }),
-      ],
+      children: [new TextRun({ text: profile.fullName, bold: true, size: 32, font: 'Arial' })],
       alignment: AlignmentType.CENTER,
       spacing: { after: 100 },
     })
   );
-
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: profile.headline,
-          size: 24,
-          color: '666666',
-          font: 'Arial',
-        }),
-      ],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 50 },
-    })
-  );
-
-  if (profile.location) {
-    children.push(
+  if (profile.headline) {
+    out.push(
       new Paragraph({
-        children: [
-          new TextRun({
-            text: profile.location,
-            size: 20,
-            color: '888888',
-            font: 'Arial',
-          }),
-        ],
+        children: [new TextRun({ text: profile.headline, size: 24, color: SECONDARY, font: 'Arial' })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 50 },
+      })
+    );
+  }
+  const contactParts = [profile.location, profile.email, profile.phone, profile.profileUrl].filter(Boolean);
+  if (contactParts.length) {
+    out.push(
+      new Paragraph({
+        children: [new TextRun({ text: contactParts.join(' | '), size: 18, color: MUTED, font: 'Arial' })],
         alignment: AlignmentType.CENTER,
         spacing: { after: 100 },
       })
     );
   }
-
-  const contactParts: string[] = [];
-  if (profile.email) contactParts.push(profile.email);
-  if (profile.phone) contactParts.push(profile.phone);
-  contactParts.push(profile.profileUrl);
-
-  children.push(
+  out.push(
     new Paragraph({
-      children: [
-        new TextRun({
-          text: contactParts.join(' | '),
-          size: 18,
-          color: '888888',
-          font: 'Arial',
-        }),
-      ],
-      alignment: AlignmentType.CENTER,
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: PRIMARY } },
       spacing: { after: 200 },
     })
   );
+  return out;
+}
 
-  children.push(
-    new Paragraph({
-      border: {
-        bottom: { style: BorderStyle.SINGLE, size: 6, color: '2563EB' },
-      },
-      spacing: { after: 200 },
-    })
-  );
+function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): Paragraph[] {
+  const out: Paragraph[] = [];
 
-  if (profile.summary && options?.sections?.exclude?.includes('summary') !== true) {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'PROFESSIONAL SUMMARY',
-            bold: true,
-            size: 24,
-            color: '2563EB',
-            font: 'Arial',
-          }),
-        ],
-        spacing: { before: 200, after: 100 },
-      })
-    );
-
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: profile.summary,
-            size: 20,
-            font: 'Arial',
-          }),
-        ],
-        spacing: { after: 200 },
-      })
-    );
-  }
-
-  if (profile.experiences.length > 0 && options?.sections?.exclude?.includes('experience') !== true) {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'WORK EXPERIENCE',
-            bold: true,
-            size: 24,
-            color: '2563EB',
-            font: 'Arial',
-          }),
-        ],
-        spacing: { before: 200, after: 100 },
-      })
-    );
-
-    for (const exp of profile.experiences) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: exp.title,
-              bold: true,
-              size: 22,
-              font: 'Arial',
-            }),
-          ],
-          spacing: { before: 100, after: 50 },
-        })
-      );
-
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: exp.company,
-              size: 20,
-              color: '2563EB',
-              font: 'Arial',
-            }),
-            new TextRun({
-              text: ` | ${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`,
-              size: 20,
-              color: '666666',
-              font: 'Arial',
-            }),
-          ],
-          spacing: { after: 50 },
-        })
-      );
-
-      if (exp.location) {
-        children.push(
+  switch (type) {
+    case 'summary':
+      if (profile.summary) {
+        out.push(sectionHeading('PROFESSIONAL SUMMARY'));
+        out.push(
+          new Paragraph({
+            children: [new TextRun({ text: profile.summary, size: 20, font: 'Arial' })],
+            spacing: { after: 200 },
+          })
+        );
+      }
+      break;
+    case 'experience':
+      out.push(sectionHeading('WORK EXPERIENCE'));
+      for (const exp of profile.experiences) {
+        out.push(
+          new Paragraph({
+            children: [new TextRun({ text: exp.title, bold: true, size: 22, font: 'Arial' })],
+            spacing: { before: 100, after: 50 },
+          })
+        );
+        out.push(
           new Paragraph({
             children: [
+              new TextRun({ text: exp.company, size: 20, color: PRIMARY, font: 'Arial' }),
               new TextRun({
-                text: exp.location,
-                size: 18,
-                color: '888888',
+                text: ` | ${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`,
+                size: 20,
+                color: SECONDARY,
                 font: 'Arial',
               }),
             ],
             spacing: { after: 50 },
           })
         );
+        if (exp.location) {
+          out.push(
+            new Paragraph({
+              children: [new TextRun({ text: exp.location, size: 18, color: MUTED, font: 'Arial' })],
+              spacing: { after: 50 },
+            })
+          );
+        }
+        out.push(
+          new Paragraph({
+            children: [new TextRun({ text: exp.description, size: 20, font: 'Arial' })],
+            spacing: { after: 100 },
+          })
+        );
       }
-
-      children.push(
+      break;
+    case 'education':
+      out.push(sectionHeading('EDUCATION'));
+      for (const edu of profile.education) {
+        out.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: `${edu.degree}${edu.field ? ` in ${edu.field}` : ''}`, bold: true, size: 22, font: 'Arial' }),
+            ],
+            spacing: { before: 100, after: 50 },
+          })
+        );
+        out.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: edu.school, size: 20, color: PRIMARY, font: 'Arial' }),
+              new TextRun({ text: ` | ${edu.startDate} - ${edu.endDate}`, size: 20, color: SECONDARY, font: 'Arial' }),
+            ],
+            spacing: { after: 100 },
+          })
+        );
+      }
+      break;
+    case 'skills':
+      out.push(sectionHeading('SKILLS'));
+      out.push(
         new Paragraph({
           children: [
-            new TextRun({
-              text: exp.description,
-              size: 20,
-              font: 'Arial',
-            }),
+            new TextRun({ text: profile.skills.map((s) => s.name).join(' • '), size: 20, font: 'Arial' }),
           ],
-          spacing: { after: 100 },
+          spacing: { after: 200 },
         })
       );
-    }
+      break;
+    case 'certifications':
+      out.push(sectionHeading('CERTIFICATIONS'));
+      for (const cert of profile.certifications || []) {
+        out.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: cert.name, size: 20, font: 'Arial' }),
+              cert.issuer ? new TextRun({ text: ` (${cert.issuer})`, size: 20, color: PRIMARY, font: 'Arial' }) : undefined,
+            ].filter((t): t is TextRun => Boolean(t)),
+            spacing: { after: 50 },
+          })
+        );
+      }
+      break;
+    case 'projects':
+      out.push(sectionHeading('PROJECTS'));
+      for (const project of profile.projects || []) {
+        out.push(
+          new Paragraph({
+            children: [new TextRun({ text: project.name, bold: true, size: 22, font: 'Arial' })],
+            spacing: { before: 100, after: 50 },
+          })
+        );
+        if (project.description) {
+          out.push(
+            new Paragraph({
+              children: [new TextRun({ text: project.description, size: 20, font: 'Arial' })],
+              spacing: { after: 100 },
+            })
+          );
+        }
+      }
+      break;
+    case 'contact':
+      // contact already rendered in the header block
+      break;
   }
 
-  if (profile.education.length > 0 && options?.sections?.exclude?.includes('education') !== true) {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'EDUCATION',
-            bold: true,
-            size: 24,
-            color: '2563EB',
-            font: 'Arial',
-          }),
-        ],
-        spacing: { before: 200, after: 100 },
-      })
-    );
+  return out;
+}
 
-    for (const edu of profile.education) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `${edu.degree}${edu.field ? ` in ${edu.field}` : ''}`,
-              bold: true,
-              size: 22,
-              font: 'Arial',
-            }),
-          ],
-          spacing: { before: 100, after: 50 },
-        })
-      );
+export async function generateDocx(data: ResumeData): Promise<Buffer> {
+  const { profile, template } = data;
+  const children: Paragraph[] = [];
 
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: edu.school,
-              size: 20,
-              color: '2563EB',
-              font: 'Arial',
-            }),
-            new TextRun({
-              text: ` | ${edu.startDate} - ${edu.endDate}`,
-              size: 20,
-              color: '666666',
-              font: 'Arial',
-            }),
-          ],
-          spacing: { after: 100 },
-        })
-      );
-    }
-  }
+  children.push(...renderHeader(profile));
 
-  if (profile.skills.length > 0 && options?.sections?.exclude?.includes('skills') !== true) {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'SKILLS',
-            bold: true,
-            size: 24,
-            color: '2563EB',
-            font: 'Arial',
-          }),
-        ],
-        spacing: { before: 200, after: 100 },
-      })
-    );
-
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: profile.skills.map((s) => s.name).join(' • '),
-            size: 20,
-            font: 'Arial',
-          }),
-        ],
-        spacing: { after: 200 },
-      })
-    );
+  const sections = getOrderedSections(template).filter((s) => s.type !== 'header');
+  for (const section of sections) {
+    children.push(...renderSection(section.type, profile));
   }
 
   const doc = new Document({
