@@ -44,7 +44,7 @@ function renderSection(
           <h2 className="text-sm font-semibold uppercase tracking-widest mb-2" style={{ color: colors.secondary }}>
             {title}
           </h2>
-          <p className="text-sm leading-relaxed" style={{ color: colors.text }}>{profile.summary}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: colors.text }}>{profile.summary}</p>
         </section>
       );
     case 'experience':

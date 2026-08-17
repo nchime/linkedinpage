@@ -9,6 +9,8 @@
 
 LinkedIn 프로필(PDF 내보내기 파일, 프로필 URL, 또는 내 LinkedIn 계정)을 이력서 데이터로 자동 파싱하고, 섹션을 편집한 뒤 다양한 형식(PDF, Word, PowerPoint, HTML, Markdown, JSON)으로 내보낼 수 있는 이력서 생성 도구입니다.
 
+![메인 화면 스크린샷](./mainscreenshot.png)
+
 ## 주요 기능
 
 - **내 프로필 가져오기**
