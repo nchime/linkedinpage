@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { mkdir, access } from 'fs/promises';
+import { mkdir, access, rm } from 'fs/promises';
 
 export const LINKEDIN_DATA_DIR = join(process.cwd(), '.linkedin');
 export const CHROME_PROFILE_DIR = join(LINKEDIN_DATA_DIR, 'chrome-profile');
@@ -15,4 +15,8 @@ export async function hasSavedSession(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function clearSession(): Promise<void> {
+  await rm(CHROME_PROFILE_DIR, { recursive: true, force: true });
 }

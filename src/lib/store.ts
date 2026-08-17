@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { LinkedInProfile, ResumeTemplate, ExportFormat, ExportOptions } from '@/types';
+import { LinkedInProfile, ResumeTemplate, ExportOptions } from '@/types';
 import { templates } from '@/lib/templates';
 
 interface ResumeState {
@@ -8,12 +8,14 @@ interface ResumeState {
   exportOptions: ExportOptions;
   isLoading: boolean;
   error: string | null;
-  
+  linkedInLoggedIn: boolean;
+
   setProfile: (profile: LinkedInProfile | null) => void;
   setSelectedTemplate: (templateId: string) => void;
   setExportOptions: (options: ExportOptions) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setLinkedInLoggedIn: (loggedIn: boolean) => void;
   reset: () => void;
 }
 
@@ -39,6 +41,7 @@ export const useResumeStore = create<ResumeState>((set) => ({
   exportOptions: defaultOptions,
   isLoading: false,
   error: null,
+  linkedInLoggedIn: false,
 
   setProfile: (profile) => set({ profile }),
   
@@ -64,11 +67,14 @@ export const useResumeStore = create<ResumeState>((set) => ({
   
   setError: (error) => set({ error }),
   
+  setLinkedInLoggedIn: (loggedIn) => set({ linkedInLoggedIn: loggedIn }),
+  
   reset: () => set({
     profile: null,
     selectedTemplate: templates[0],
     exportOptions: defaultOptions,
     isLoading: false,
     error: null,
+    linkedInLoggedIn: false,
   }),
 }));

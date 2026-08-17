@@ -1,6 +1,7 @@
 'use client';
 
 import ProfileImport from '@/components/editor/ProfileImport';
+import LinkedInSessionButton from '@/components/editor/LinkedInSessionButton';
 import ProfileEditor from '@/components/editor/ProfileEditor';
 import TemplateSelector from '@/components/templates/TemplateSelector';
 import ExportButtons from '@/components/editor/ExportButtons';
@@ -14,12 +15,15 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-xl font-bold text-gray-900">LinkedIn Resume Generator</h1>
               <p className="mt-0.5 text-sm text-gray-500">
                 LinkedIn 프로필을 전문 이력서로 변환합니다
               </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <LinkedInSessionButton />
             </div>
           </div>
         </div>

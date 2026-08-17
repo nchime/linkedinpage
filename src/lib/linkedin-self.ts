@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
 import { LinkedInProfile } from '@/types';
 import { parseLinkedInPdf } from '@/lib/pdf-parser';
 import { parseLinkedInHtml } from '@/lib/scraper';
-import { ensureDataDir, CHROME_PROFILE_DIR } from '@/lib/linkedin-session';
+import { ensureDataDir, clearSession, hasSavedSession, CHROME_PROFILE_DIR } from '@/lib/linkedin-session';
 
 export class LinkedInNotLoggedInError extends Error {
   constructor() {
@@ -94,6 +94,13 @@ export async function loginToLinkedIn(): Promise<{ loggedIn: boolean; canceled?:
     } finally {
       await browser.close().catch(() => {});
     }
+  });
+}
+
+export async function logoutLinkedIn(): Promise<boolean> {
+  return withLinkedInBrowser(async () => {
+    await clearSession();
+    return !(await hasSavedSession());
   });
 }
 

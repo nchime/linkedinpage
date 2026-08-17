@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useResumeStore } from '@/lib/store';
 import { LinkedInProfile } from '@/types';
 
@@ -14,7 +14,16 @@ export default function ProfileImport() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { setProfile, setLoading, setError } = useResumeStore();
+  const { setProfile, setLoading, setError, setLinkedInLoggedIn, linkedInLoggedIn } = useResumeStore();
+
+  const prevLoggedIn = useRef(linkedInLoggedIn);
+  useEffect(() => {
+    if (prevLoggedIn.current === true && linkedInLoggedIn === false) {
+      setNeedsLogin(true);
+      setMessage('세션이 로그아웃되었습니다. 다시 로그인해 주세요.');
+    }
+    prevLoggedIn.current = linkedInLoggedIn;
+  }, [linkedInLoggedIn]);
 
   const fetchMyProfile = async () => {
     setIsBusy(true);
@@ -34,6 +43,7 @@ export default function ProfileImport() {
 
       const data = await res.json();
       if (res.status === 401 || data.needsLogin) {
+        setLinkedInLoggedIn(false);
         setNeedsLogin(true);
         setMessage('LinkedIn 로그인이 필요합니다. 로그인 버튼을 눌러주세요.');
       } else {
@@ -57,9 +67,12 @@ export default function ProfileImport() {
       const data = await res.json();
 
       if (data.loggedIn) {
+        setLinkedInLoggedIn(true);
+        setNeedsLogin(false);
         setMessage('로그인 완료. 내 프로필을 불러오는 중입니다...');
         await fetchMyProfile();
       } else {
+        setLinkedInLoggedIn(false);
         setNeedsLogin(true);
         setMessage(
           data.canceled
