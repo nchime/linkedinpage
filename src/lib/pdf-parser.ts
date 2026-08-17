@@ -3,7 +3,7 @@ import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-const pdfTextExtract = require('pdf-text-extract');
+import pdfTextExtract from 'pdf-text-extract';
 
 export async function parseLinkedInPdf(buffer: Buffer): Promise<LinkedInProfile> {
   const tmpPath = join(tmpdir(), `linkedin-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
@@ -29,7 +29,7 @@ function extractTextFromFile(filePath: string): Promise<string> {
   });
 }
 
-function parseProfileFromText(text: string): LinkedInProfile {
+export function parseProfileFromText(text: string): LinkedInProfile {
   const lines = text.split('\n').filter(l => l.trim());
 
   return {
@@ -88,6 +88,12 @@ function extractHeadline(lines: string[]): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (line.match(/(?:Engineer|Developer|Manager|Director|Lead|Architect|Consultant|Specialist|디렉터|매니저|연구원|부장|수석|팀장)/i)) {
+      // The -layout export merges the left-column email and right-column
+      // headline onto one row; keep only the right-column portion.
+      if (line.includes('@')) {
+        const parts = line.split(/\s{3,}/);
+        if (parts.length > 1) return parts.pop()!.trim();
+      }
       return line;
     }
   }
@@ -98,8 +104,47 @@ function extractHeadline(lines: string[]): string {
 }
 
 function extractSummary(text: string): string {
-  const match = text.match(/(?:About|Summary|간단프로필)\s*\n([\s\S]*?)(?=\n(?:Experience|Education|Skills|Contact|Accomplishments|대표 보유기술|Certifications|경력))/i);
-  return match ? match[1].trim() : '';
+  const lines = text.split('\n');
+
+  // Korean exports render "간단프로필" as a right-column header. Depending on
+  // the export layout it may sit alone on a line or share a row with the
+  // left-column contact/skills content, so match it anywhere in the line.
+  const headerIdx = lines.findIndex(l => l.includes('간단프로필'));
+
+  // English exports render the About section as a single column.
+  if (headerIdx === -1) {
+    const match = text.match(/(?:About|Summary)\s*\n([\s\S]*?)(?=\n\s*(?:Experience|Education|Skills|Contact|Accomplishments|Licenses|Certifications)\b)/i);
+    return match ? match[1].replace(/\s*\n\s*/g, ' ').trim() : '';
+  }
+
+  // The intro text sits in the right column, interleaved with the left-column
+  // skills/certifications on the same rows. Slice each line at the header's
+  // column offset to keep only the intro text.
+  const column = lines[headerIdx].indexOf('간단프로필');
+  const rightColumn = column >= 5;
+  const frags: string[] = [];
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    // NOTE: JS \b is ASCII-only, so it never matches after Korean characters.
+    // Use a negative lookahead so Korean and English section headers both stop.
+    const sectionStart = /^(?:주요 기술\s*Spec|경력|학력|간단프로필|대표 보유기술|Certifications|Experience|Education|Skills|Contact|Accomplishments)(?![가-힣A-Za-z0-9])/i;
+
+    if (rightColumn) {
+      const slice = line.slice(Math.min(column, line.length)).trim();
+      if (!slice) continue;
+      if (sectionStart.test(slice)) break;
+      frags.push(slice);
+    } else {
+      const trimmed = line.trim();
+      if (sectionStart.test(trimmed)) break;
+      frags.push(trimmed);
+    }
+  }
+
+  return frags.join(' ').trim();
 }
 
 function extractLocation(text: string): string {
@@ -362,7 +407,7 @@ function extractSimpleSkills(text: string): Skill[] {
   const lines = text.split('\n');
   
   let inLeftColumn = false;
-  let leftColumnItems: string[] = [];
+  const leftColumnItems: string[] = [];
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useResumeStore } from '@/lib/store';
 import { LinkedInProfile } from '@/types';
 import { SectionConfig } from '@/types';
+import { ResumeTemplate } from '@/types';
 import {
   getOrderedSections,
   getMainSections,
@@ -29,7 +31,9 @@ function renderSection(
   profile: LinkedInProfile,
   colors: Palette,
   fonts: Fonts,
-  inSidebar: boolean
+  inSidebar: boolean,
+  showExperienceDetails: boolean,
+  minimal: boolean
 ) {
   const title = section.title || defaultTitle(type);
 
@@ -44,6 +48,28 @@ function renderSection(
         </section>
       );
     case 'experience':
+      if (minimal) {
+        return (
+          <section className="mb-6" key={section.id}>
+            <h2 className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: colors.secondary }}>
+              {title}
+            </h2>
+            <div className="space-y-1.5">
+              {profile.experiences.map((exp) => (
+                <div key={exp.id} className="flex justify-between items-baseline gap-2">
+                  <p className="text-sm" style={{ color: colors.text }}>
+                    <span className="font-semibold">{exp.title}</span>
+                    {exp.company && <span style={{ color: colors.primary }}> · {exp.company}</span>}
+                  </p>
+                  <span className="text-xs whitespace-nowrap shrink-0" style={{ color: colors.secondary }}>
+                    {exp.startDate} - {exp.current ? 'Present' : exp.endDate || 'Present'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
       return (
         <section className="mb-6" key={section.id}>
           <h2 className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: colors.secondary }}>
@@ -59,10 +85,10 @@ function renderSection(
                   </span>
                 </div>
                 <p className="text-sm" style={{ color: colors.primary }}>{exp.company}</p>
-                {exp.location && (
+                {showExperienceDetails && exp.location && (
                   <p className="text-xs" style={{ color: colors.secondary }}>{exp.location}</p>
                 )}
-                {exp.description && (
+                {showExperienceDetails && exp.description && (
                   <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.text }}>{exp.description}</p>
                 )}
               </div>
@@ -216,8 +242,90 @@ function defaultTitle(type: SectionConfig['type']): string {
   return map[type] || 'Profile';
 }
 
+function buildPlainText(profile: LinkedInProfile, template: ResumeTemplate): string {
+  const sections = getOrderedSections(template).filter((s) => s.type !== 'header');
+  const showDetails = template.config.showExperienceDescription ?? true;
+  const titleOf = (s: SectionConfig) => s.title || defaultTitle(s.type);
+  const out: string[] = [];
+
+  out.push(profile.fullName);
+  if (profile.headline) out.push(profile.headline);
+  const contactLine = [profile.location, profile.email, profile.phone].filter(Boolean).join(' · ');
+  if (contactLine) out.push(contactLine);
+
+  for (const section of sections) {
+    switch (section.type) {
+      case 'summary':
+        if (profile.summary) out.push('', titleOf(section), '', profile.summary);
+        break;
+      case 'experience':
+        out.push('', titleOf(section), '');
+        for (const exp of profile.experiences) {
+          const period = `${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`;
+          out.push(`${exp.title}${exp.company ? ` · ${exp.company}` : ''} (${period})`);
+          if (showDetails && exp.description) {
+            out.push(exp.description.split('\n').map((l) => `  ${l}`).join('\n'));
+          }
+        }
+        break;
+      case 'education':
+        out.push('', titleOf(section), '');
+        for (const edu of profile.education) {
+          out.push(`${edu.degree}${edu.field ? ` in ${edu.field}` : ''} - ${edu.school} (${edu.startDate} - ${edu.endDate})`);
+        }
+        break;
+      case 'skills':
+        out.push('', titleOf(section), '', profile.skills.map((s) => s.name).join(' · '));
+        break;
+      case 'certifications':
+        if (profile.certifications?.length) {
+          out.push('', titleOf(section), '');
+          for (const cert of profile.certifications) {
+            out.push(`- ${cert.name}${cert.issuer ? ` (${cert.issuer})` : ''}`);
+          }
+        }
+        break;
+      case 'projects':
+        if (profile.projects?.length) {
+          out.push('', titleOf(section), '');
+          for (const project of profile.projects) {
+            out.push(`- ${project.name}`);
+            if (project.description) out.push(project.description);
+          }
+        }
+        break;
+      case 'contact':
+        break;
+      default:
+        break;
+    }
+  }
+
+  return out.join('\n').trim();
+}
+
 export default function ResumePreview() {
   const { profile, selectedTemplate, exportOptions } = useResumeStore();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!profile) return;
+    const text = buildPlainText(profile, selectedTemplate);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
 
   if (!profile) {
     return (
@@ -244,22 +352,41 @@ export default function ResumePreview() {
   const twoColumn = isTwoColumn(selectedTemplate);
   const minimal = isMinimal(selectedTemplate);
   const sidebarWidth = selectedTemplate.config.sidebarWidth || '32%';
+  const showExperienceDetails = selectedTemplate.config.showExperienceDescription ?? true;
 
   const renderColumnSections = (sections: SectionConfig[], inSidebar: boolean) =>
-    sections.map((section) => renderSection(section.type, section, profile, colors, fonts, inSidebar));
+    sections.map((section) => renderSection(section.type, section, profile, colors, fonts, inSidebar, showExperienceDetails, minimal));
 
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
         <h2 className="text-lg font-semibold text-gray-900">Preview</h2>
-        <span className="text-sm text-gray-500">{selectedTemplate.name} 템플릿</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{selectedTemplate.name} 템플릿</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {copied ? (
+              <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+            )}
+            {copied ? '복사됨' : '복사'}
+          </button>
+        </div>
       </div>
 
       <div className="p-8" style={{ background: colors.background }}>
         <div
           className={minimal ? 'max-w-[520px] mx-auto text-center' : 'max-w-[600px] mx-auto'}
         >
-          {headerSection && renderSection('header', headerSection, profile, colors, fonts, false)}
+          {headerSection && renderSection('header', headerSection, profile, colors, fonts, false, showExperienceDetails, minimal)}
 
           {twoColumn ? (
             <div className="flex gap-8">

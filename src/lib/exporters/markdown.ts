@@ -1,7 +1,7 @@
 import { ResumeData, LinkedInProfile, SectionConfig } from '@/types';
 import { getOrderedSections } from '@/lib/templates';
 
-function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): string {
+function renderSection(type: SectionConfig['type'], profile: LinkedInProfile, showExperienceDetails: boolean, minimal: boolean): string {
   const out: string[] = [];
 
   switch (type) {
@@ -13,12 +13,18 @@ function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): s
     case 'experience':
       out.push('## Experience', '');
       for (const exp of profile.experiences) {
+        if (minimal) {
+          out.push(`- **${exp.title}**${exp.company ? ` · ${exp.company}` : ''} | ${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`);
+          continue;
+        }
         out.push(`### ${exp.title}`);
         out.push(`**${exp.company}** | ${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`);
-        if (exp.location) out.push(`📍 ${exp.location}`);
+        if (showExperienceDetails && exp.location) out.push(`📍 ${exp.location}`);
         out.push('');
-        out.push(exp.description);
-        out.push('');
+        if (showExperienceDetails) {
+          out.push(exp.description);
+          out.push('');
+        }
       }
       break;
     case 'education':
@@ -70,8 +76,10 @@ export function generateMarkdown(data: ResumeData): string {
   sections.push('');
 
   const ordered = getOrderedSections(template).filter((s) => s.type !== 'header');
+  const showExperienceDetails = template?.config?.showExperienceDescription ?? true;
+  const minimal = template?.layout === 'minimal';
   for (const section of ordered) {
-    sections.push(renderSection(section.type, profile));
+    sections.push(renderSection(section.type, profile, showExperienceDetails, minimal));
   }
 
   return sections.join('\n');

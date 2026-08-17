@@ -47,7 +47,9 @@ function renderSection(
   type: SectionConfig['type'],
   section: SectionConfig,
   profile: LinkedInProfile,
-  inSidebar: boolean
+  inSidebar: boolean,
+  showExperienceDetails: boolean,
+  minimal: boolean
 ): string {
   const title = escapeHtml(section.title || defaultTitle(type));
 
@@ -80,6 +82,18 @@ function renderSection(
           <p class="summary">${escapeHtml(profile.summary)}</p>
         </section>`;
     case 'experience':
+      if (minimal) {
+        return `
+        <section class="preview-section">
+          <h2 class="section-title">${title}</h2>
+          ${profile.experiences.map((exp) => `
+            <div class="item-compact">
+              <span class="item-title">${escapeHtml(exp.title)}${exp.company ? ` <span class="item-company">· ${escapeHtml(exp.company)}</span>` : ''}</span>
+              <span class="item-date">${escapeHtml(exp.startDate)} - ${exp.current ? 'Present' : escapeHtml(exp.endDate || 'Present')}</span>
+            </div>
+          `).join('')}
+        </section>`;
+      }
       return `
         <section class="preview-section">
           <h2 class="section-title">${title}</h2>
@@ -90,8 +104,8 @@ function renderSection(
                 <span class="item-date">${escapeHtml(exp.startDate)} - ${exp.current ? 'Present' : escapeHtml(exp.endDate || 'Present')}</span>
               </div>
               <div class="item-company">${escapeHtml(exp.company)}</div>
-              ${exp.location ? `<div class="item-location">${escapeHtml(exp.location)}</div>` : ''}
-              ${exp.description ? `<p class="item-description">${escapeHtml(exp.description)}</p>` : ''}
+              ${showExperienceDetails && exp.location ? `<div class="item-location">${escapeHtml(exp.location)}</div>` : ''}
+              ${showExperienceDetails && exp.description ? `<p class="item-description">${escapeHtml(exp.description)}</p>` : ''}
             </div>
           `).join('')}
         </section>`;
@@ -155,9 +169,9 @@ function renderSection(
   }
 }
 
-function renderColumn(sections: SectionConfig[], profile: LinkedInProfile, inSidebar: boolean): string {
+function renderColumn(sections: SectionConfig[], profile: LinkedInProfile, inSidebar: boolean, showExperienceDetails: boolean, minimal: boolean): string {
   return sections
-    .map((section) => renderSection(section.type, section, profile, inSidebar))
+    .map((section) => renderSection(section.type, section, profile, inSidebar, showExperienceDetails, minimal))
     .join('');
 }
 
@@ -182,22 +196,23 @@ export function generateHtml(data: ResumeData): string {
   const headerSection = getOrderedSections(template).find((s) => s.type === 'header');
   const mainSections = getMainSections(template).filter((s) => s.type !== 'header');
   const sidebarSections = getSidebarSections(template);
+  const showExperienceDetails = tc?.showExperienceDescription ?? true;
 
   const headerHtml = headerSection
-    ? renderSection('header', headerSection, profile, false)
+    ? renderSection('header', headerSection, profile, false, showExperienceDetails, minimal)
     : '';
 
   const bodyHtml = twoColumn
     ? `
       <div class="layout">
         <aside class="sidebar" style="width:${sidebarWidth};">
-          ${renderColumn(sidebarSections, profile, true)}
+          ${renderColumn(sidebarSections, profile, true, showExperienceDetails, minimal)}
         </aside>
         <main class="main">
-          ${renderColumn(mainSections, profile, false)}
+          ${renderColumn(mainSections, profile, false, showExperienceDetails, minimal)}
         </main>
       </div>`
-    : renderColumn(mainSections, profile, false);
+    : renderColumn(mainSections, profile, false, showExperienceDetails, minimal);
 
   const styles = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -214,6 +229,10 @@ export function generateHtml(data: ResumeData): string {
     .section-title { font-family: ${fonts.heading}, sans-serif; font-size: 1.05em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: ${colors.secondary}; margin-bottom: 12px; ${minimal ? 'text-align: center;' : ''} }
     .section-title.sidebar { color: ${colors.primary}; }
     .item { margin-bottom: 12px; }
+    .item-compact { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; }
+    .item-compact .item-title { font-weight: 600; color: ${colors.text}; }
+    .item-compact .item-company { font-weight: 500; }
+    .item-compact .item-date { white-space: nowrap; }
     .item-header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 3px; }
     .item-title { font-weight: 600; color: ${colors.text}; }
     .item-date { color: ${colors.secondary}; font-size: 0.85em; white-space: nowrap; }

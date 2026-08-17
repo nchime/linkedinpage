@@ -104,6 +104,7 @@ export interface ResumeTemplate {
 export interface TemplateConfig {
   columns: number;
   sidebarWidth?: string;
+  showExperienceDescription?: boolean;
   colors: {
     primary: string;
     secondary: string;

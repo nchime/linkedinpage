@@ -97,6 +97,7 @@ export const templates: ResumeTemplate[] = [
     thumbnail: '/templates/personal.svg',
     config: {
       columns: 1,
+      showExperienceDescription: false,
       colors: {
         primary: '#111827',
         secondary: '#6B7280',

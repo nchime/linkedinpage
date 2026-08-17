@@ -50,7 +50,7 @@ function renderHeader(profile: LinkedInProfile): Paragraph[] {
   return out;
 }
 
-function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): Paragraph[] {
+function renderSection(type: SectionConfig['type'], profile: LinkedInProfile, showExperienceDetails: boolean, minimal: boolean): Paragraph[] {
   const out: Paragraph[] = [];
 
   switch (type) {
@@ -67,6 +67,26 @@ function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): P
       break;
     case 'experience':
       out.push(sectionHeading('WORK EXPERIENCE'));
+      if (minimal) {
+        for (const exp of profile.experiences) {
+          out.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: exp.title, bold: true, size: 22, font: 'Arial' }),
+                exp.company ? new TextRun({ text: ` · ${exp.company}`, size: 20, color: PRIMARY, font: 'Arial' }) : undefined,
+                new TextRun({
+                  text: ` | ${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`,
+                  size: 18,
+                  color: SECONDARY,
+                  font: 'Arial',
+                }),
+              ].filter((t): t is TextRun => Boolean(t)),
+              spacing: { after: 100 },
+            })
+          );
+        }
+        break;
+      }
       for (const exp of profile.experiences) {
         out.push(
           new Paragraph({
@@ -88,7 +108,7 @@ function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): P
             spacing: { after: 50 },
           })
         );
-        if (exp.location) {
+        if (showExperienceDetails && exp.location) {
           out.push(
             new Paragraph({
               children: [new TextRun({ text: exp.location, size: 18, color: MUTED, font: 'Arial' })],
@@ -96,12 +116,14 @@ function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): P
             })
           );
         }
-        out.push(
-          new Paragraph({
-            children: [new TextRun({ text: exp.description, size: 20, font: 'Arial' })],
-            spacing: { after: 100 },
-          })
-        );
+        if (showExperienceDetails) {
+          out.push(
+            new Paragraph({
+              children: [new TextRun({ text: exp.description, size: 20, font: 'Arial' })],
+              spacing: { after: 100 },
+            })
+          );
+        }
       }
       break;
     case 'education':
@@ -181,12 +203,14 @@ function renderSection(type: SectionConfig['type'], profile: LinkedInProfile): P
 export async function generateDocx(data: ResumeData): Promise<Buffer> {
   const { profile, template } = data;
   const children: Paragraph[] = [];
+  const showExperienceDetails = template?.config?.showExperienceDescription ?? true;
+  const minimal = template?.layout === 'minimal';
 
   children.push(...renderHeader(profile));
 
   const sections = getOrderedSections(template).filter((s) => s.type !== 'header');
   for (const section of sections) {
-    children.push(...renderSection(section.type, profile));
+    children.push(...renderSection(section.type, profile, showExperienceDetails, minimal));
   }
 
   const doc = new Document({
